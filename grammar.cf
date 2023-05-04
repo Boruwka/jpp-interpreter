@@ -1,0 +1,17 @@
+EVar. Expr ::= Ident ;
+EInt. Expr ::= Integer ;
+EAdd. Expr ::= Expr "+" Expr ;
+
+IAssign. Inst ::= Ident "=" Expr ;
+IIf. Inst ::= "if" Expr "then" Inst "else" Inst ;
+IInit. Inst ::= Type Ident "=" Expr ;
+
+TypeInt. Type ::= "int" ;
+
+separator Inst ";" ;
+
+Prog.  Program ::= [Inst] ;
+
+entrypoints Program ;
+
+
