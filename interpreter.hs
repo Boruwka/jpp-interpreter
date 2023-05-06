@@ -4,95 +4,91 @@ import Control.Monad.Reader
 import Control.Monad.Except
 import Control.Monad.Identity
 import Control.Monad.State
+import Control.Monad.Trans.Class
 
 import Grammar.Abs
 import Grammar.Par
 import Grammar.Lex
 
 
-type Var = String
-type Loc = Int
-type Env = Map.Map Var Loc
+type Loc = Integer
+type Env = Map.Map Ident Loc
 type Err = String
-type Store = Map.Map Loc Int
+type Store = Map.Map Loc Integer
+type StoreLocations = (Store, Integer)
 type Type = String
 
-type Interpreter a = (ReaderT Env (StateT Store (ExceptT Err Identity))) a
+type Interpreter a = (ReaderT Env (ExceptT Err (StateT StoreLocations Identity))) a
 
-evalExpr :: Expr Int -> Interpreter Int 
+evalExpr :: Expr -> Interpreter Integer 
 
-evalExpr (EVar x) = do
-    r <- ask -- r :: Env
-    s <- get -- s :: State
-    if member x r then do
-    {
-        l <- (r ! x);        -- (r ! x) :: Loc
-        if member l s then 
-            return (s ! l) -- Int
+evalExpr (EVar _ x) = do
+    env <- ask
+    (store, loc) <- get
+    if Map.member x env then
+        let l = (env Map.! x) in       -- (env ! x) :: Loc
+        if Map.member l store then 
+            return (store Map.! l) -- Int
         else
             throwError ("Weird error - localisation not known in state!")
-    }
     else
-        throwError ("Unknown variable " ++ x ++ " at some place!")
+        throwError ("Unknown variable " ++ (show x) ++ " at some place!")
 
-evalExpr (EInt n) = do
+evalExpr (EInt _ n) = do
     return n
     
-evalExpr (EAdd e1 e2) = do
-    v1 <- eval e1 -- v1 :: Int
-    v2 <- eval e2
+evalExpr (EAdd _ e1 e2) = do
+    v1 <- evalExpr e1 -- v1 :: Int
+    v2 <- evalExpr e2
     return (v1 + v2)
     
-evalProg :: Program Int -> Interpreter ()
+evalProg :: Program -> Interpreter ()
 
-evalProg insts = evalInsts insts
+evalProg (Prog _ insts) = evalInsts insts
     
-evalInsts :: [Inst Int] -> Interpreter ()
+evalInsts :: [Inst] -> Interpreter ()
 
 evalInsts [] = return ()
 evalInsts (inst:tl) = do
-{
     evalInst inst
     evalInsts tl
-}
     
-evalInst :: Inst Int -> Interpreter ()
+evalInst :: Inst -> Interpreter ()
     
-evalInst (IAssign x e) = do 
-    r <- ask -- r :: Env
-    s <- get -- s :: State
-    if member x r then do
-        l <- (r ! x)        -- (r ! x) :: Loc
-        if member l s then do
+evalInst (IAssign _ x e) = do 
+    env <- ask
+    (store, loc) <- get
+    if Map.member x env then
+        let l = (env Map.! x) in
+        if Map.member l store then do
             n <- (evalExpr e)
-            put (insert s e) -- Int
+            put ((Map.insert l n store), loc)
         else
             throwError ("Weird error - localisation not known in state!")
     else
-        throwError ("Unknown variable " ++ x ++ " at some place!")
+        throwError ("Unknown variable " ++ (show x) ++ " at some place!")
 
-evalInst (IIf e i1 i2) = do
+evalInst (IIf _ e i1 i2) = do
     n <- (evalExpr e)   
     if (n >= 0) then do
-        evalInstr i1
+        evalInst i1
     else
-        evalInstr i2
+        evalInst i2
 
-evalInst (IInit t x e) = do
-    n <- evalExpr e
+evalInst (IInit _ t x e) = do
+    n <- (evalExpr e)
     env_v <- ask
-    (store, locations) <- get
-    l <- (newlock locations)
-    local (insert env_v x l)
-    put (insert store l n) 
+    (store, loc) <- get
+    local (const env_v) (Map.insert x loc env_v)
+    put ((Map.insert loc n store), (loc + 1)) 
 
 
 progTree = undefined -- trzeba przepuścić przez parser
 
 runInterpreter :: (Interpreter a) -> Env -> Store -> Either Err a
-runInterpreter v r = runIdentity (runExceptT (runStateT (runReaderT v r)))
+runInterpreter monad env store = runIdentity (runExceptT (runStateT (runReaderT monad env) store))
 
-interpret = runInterpreter (evalProg progTree) map.Empty
+interpret progTree = runInterpreter (evalProg progTree) Map.empty (Map.empty, 0)
 
 interpretFile :: FilePath -> IO ()
 interpretFile file = readFile file >>= interpretText
@@ -105,8 +101,3 @@ interpretText input = interpret parsedTokens
 
 path = "przyklady/przyklad1.txt"
 main = interpretFile path
-
-
-
-
-
