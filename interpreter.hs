@@ -50,8 +50,19 @@ evalExpr (EAdd _ e1 e2) = do
     
 evalProg :: Program -> Interpreter ()
 
-evalProg (Prog _ insts) = do
-    evalInsts insts
+evalProg (Prog _ blocks) = evalBlocks blocks
+    
+evalBlocks :: [Block] -> Interpreter ()
+
+evalBlocks [] = return ()
+evalBlocks (b:tl) = do
+    evalBlock b
+    local id (evalBlocks tl)
+    
+evalBlock :: Block -> Interpreter ()
+
+evalBlock (Bl _ insts) = do
+    mod <- evalInsts insts
     return ()
     
 evalInsts :: [Inst] -> Interpreter (Env -> Env)
@@ -77,12 +88,14 @@ evalInst (IAssign _ x e) = do
     else
         throwError ("Unknown variable " ++ (show x) ++ " at some place!")
 
-evalInst (IIf _ e i1 i2) = do
+evalInst (IIf _ e b1 b2) = do
     n <- (evalExpr e)   
     if (n >= 0) then do
-        evalInst i1
-    else
-        evalInst i2
+        evalBlock b1
+        return id
+    else do
+        evalBlock b2
+        return id
 
 evalInst (IInit _ t x e) = do
     n <- (evalExpr e)
