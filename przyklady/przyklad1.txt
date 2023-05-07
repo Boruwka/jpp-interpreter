@@ -1,13 +1,8 @@
 {
-int x = (2*3)+6;
-int y = x%7;
-int z = x - y;
-if (x != y) then
-{
-    x = 6;
-} 
-else 
-{
-    x = 4;
-};
+int x = 5;
+int y = 0;
+while (y < x) 
+{ 
+y = y+1
+}
 } 

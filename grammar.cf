@@ -47,9 +47,13 @@ EQU.       RelOp ::= "==" ;
 NE.        RelOp ::= "!=" ;
 
 
-IAssign. Inst ::= Ident "=" Expr ;
-IIf. Inst ::= "if" "(" Expr ")" "then" Block "else" Block ;
-IInit. Inst ::= Type Ident "=" Expr ;
+IAssign.   Inst ::= Ident "=" Expr ;
+
+IIf.       Inst ::= "if" "(" Expr ")" "then" Block "else" Block ;
+
+IInit.     Inst ::= Type Ident "=" Expr ;
+
+IWhile.    Inst ::= "while" "(" Expr ")" Block ;
 
 TypeInt. Type ::= "int" ;
 TypeBool. Type ::= "bool" ;

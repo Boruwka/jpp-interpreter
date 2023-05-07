@@ -176,6 +176,14 @@ evalInst (IInit _ t x e) = do
     --local (const (Map.insert x loc env_v))
     put ((Map.insert loc n store), (loc + 1)) 
     return (\env -> (Map.insert x loc env))
+    
+evalInst (IWhile a e b) = do
+    n <- evalExpr e
+    if (n > 0) then do
+        evalBlock b
+        evalInst (IWhile a e b)
+    else do
+        return id
 
 
 -- running ----------------------
