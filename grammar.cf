@@ -1,6 +1,50 @@
-EVar. Expr ::= Ident ;
-EInt. Expr ::= Integer ;
-EAdd. Expr ::= Expr "+" Expr ;
+EVar.      Expr6 ::= Ident ;
+
+EInt.      Expr6 ::= Integer ;
+
+ETrue.     Expr6 ::= "True" ;
+
+EFalse.    Expr6 ::= "False" ;
+
+ENeg.      Expr5 ::= "-" Expr6 ;
+
+ENot.      Expr5 ::= "!" Expr6 ;
+
+EMul.      Expr4 ::= Expr4 MulOp Expr5 ;
+
+EAdd.      Expr3 ::= Expr3 AddOp Expr4 ;
+
+ERel.      Expr2 ::= Expr2 RelOp Expr3 ;
+
+EAnd.      Expr1 ::= Expr2 "&&" Expr1 ;
+
+EOr.       Expr ::= Expr1 "||" Expr ;
+
+coercions  Expr 6 ;
+
+separator  Expr "," ;
+
+Plus.      AddOp ::= "+" ;
+
+Minus.     AddOp ::= "-" ;
+
+Times.     MulOp ::= "*" ;
+
+Div.       MulOp ::= "/" ;
+
+Mod.       MulOp ::= "%" ;
+
+LTH.       RelOp ::= "<" ;
+
+LE.        RelOp ::= "<=" ;
+
+GTH.       RelOp ::= ">" ;
+
+GE.        RelOp ::= ">=" ;
+
+EQU.       RelOp ::= "==" ;
+
+NE.        RelOp ::= "!=" ;
 
 
 IAssign. Inst ::= Ident "=" Expr ;
@@ -8,6 +52,7 @@ IIf. Inst ::= "if" "(" Expr ")" "then" Block "else" Block ;
 IInit. Inst ::= Type Ident "=" Expr ;
 
 TypeInt. Type ::= "int" ;
+TypeBool. Type ::= "bool" ;
 
 separator Inst ";" ;
 

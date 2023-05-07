@@ -26,6 +26,8 @@ type Type = String
 
 type Interpreter a = (ReaderT Env (ExceptT ErrMess (StateT StoreLocations Identity))) a
 
+-- expressions -----------
+
 evalExpr :: Expr -> Interpreter Integer 
 
 evalExpr (EVar _ x) = do
@@ -42,11 +44,79 @@ evalExpr (EVar _ x) = do
 
 evalExpr (EInt _ n) = do
     return n
+   
     
-evalExpr (EAdd _ e1 e2) = do
-    v1 <- evalExpr e1 -- v1 :: Int
-    v2 <- evalExpr e2
-    return (v1 + v2)
+evalExpr (ETrue _ ) = return 1
+
+evalExpr (EFalse _ ) = return 0
+
+evalExpr (ENeg _ e) = do
+    n <- (evalExpr e)
+    return (-n)
+    
+evalExpr (ENot _ e) = do
+    n <- (evalExpr e)
+    return (bool_to_integer (not (n > 0)))
+    
+evalExpr (EMul _ e1 op e2) = 
+    let fop = mulop_to_fun op in do
+        evalWithOperator e1 e2 fop    
+    
+evalExpr (EAdd _ e1 op e2) = 
+    let fop = addop_to_fun op in do
+        evalWithOperator e1 e2 fop
+    
+evalExpr (EAnd _ e1 e2) = 
+    evalWithOperator e1 e2 (fun_bool_to_integer (&&))
+    
+evalExpr (EOr _ e1 e2) = 
+    evalWithOperator e1 e2 (fun_bool_to_integer (||))
+    
+evalExpr (ERel _ e1 op e2) =
+    let fop = relop_to_fun op in do
+        n <- evalWithOperator e1 e2 fop
+        return n
+        
+evalWithOperator :: Expr -> Expr -> (Integer -> Integer -> Integer) -> Interpreter Integer
+evalWithOperator e1 e2 op = do
+    n1 <- evalExpr e1
+    n2 <- evalExpr e2
+    return (op n1 n2)
+    
+addop_to_fun :: AddOp -> (Integer -> Integer -> Integer) 
+
+addop_to_fun (Plus _ ) = (+)
+addop_to_fun (Minus _ ) = (-)
+
+mulop_to_fun :: MulOp -> (Integer -> Integer -> Integer) 
+
+mulop_to_fun (Times _ ) = (*)
+mulop_to_fun (Div _ ) = div
+mulop_to_fun (Mod _ ) = mod
+    
+relop_to_fun :: RelOp -> (Integer -> Integer -> Integer)
+relop_to_fun (LTH _ ) n1 n2 =  bool_to_integer (n1 < n2)
+relop_to_fun (LE _ ) n1 n2 = bool_to_integer (n1 <= n2)
+relop_to_fun (GTH _ ) n1 n2 = bool_to_integer (n1 > n2)
+relop_to_fun (GE _ ) n1 n2 = bool_to_integer (n1 >= n2)
+relop_to_fun (EQU _ ) n1 n2 = bool_to_integer (n1 == n2)
+relop_to_fun (NE _ ) n1 n2 = bool_to_integer (n1 /= n2)
+
+bool_to_integer :: Bool -> Integer
+bool_to_integer True = 1
+bool_to_integer False = 0
+
+integer_to_bool :: Integer -> Bool
+integer_to_bool n = (n > 0)
+
+fun_bool_to_integer :: (Bool -> Bool -> Bool) -> Integer -> Integer -> Integer
+fun_bool_to_integer f n1 n2 = 
+    bool_to_integer (f b1 b2) where
+        b1 = integer_to_bool n1
+        b2 = integer_to_bool n2
+        
+    
+-- program and blocks
     
 evalProg :: Program -> Interpreter ()
 
@@ -64,6 +134,8 @@ evalBlock :: Block -> Interpreter ()
 evalBlock (Bl _ insts) = do
     mod <- evalInsts insts
     return ()
+    
+-- instructions -----------------
     
 evalInsts :: [Inst] -> Interpreter (Env -> Env)
 
@@ -90,7 +162,7 @@ evalInst (IAssign _ x e) = do
 
 evalInst (IIf _ e b1 b2) = do
     n <- (evalExpr e)   
-    if (n >= 0) then do
+    if (n > 0) then do
         evalBlock b1
         return id
     else do
@@ -106,6 +178,7 @@ evalInst (IInit _ t x e) = do
     return (\env -> (Map.insert x loc env))
 
 
+-- running ----------------------
 
 runInterpreter :: (Interpreter a) -> Env -> StoreLocations -> (Either ErrMess a, StoreLocations)
 runInterpreter monad env store = runIdentity (runStateT (runExceptT (runReaderT monad env)) store)
@@ -113,20 +186,11 @@ runInterpreter monad env store = runIdentity (runStateT (runExceptT (runReaderT 
 interpret :: Program' BNFC'Position -> (Either ErrMess (), StoreLocations)
 interpret progTree = runInterpreter (evalProg progTree) (Map.empty) ((Map.empty), 0)
 
-{-interpretFile :: FilePath -> IO ()
-interpretFile file = readFile file >>= interpretText
-
-interpretText :: String -> IO ()
-interpretText input = print (show (interpret progTree))
-  where
-    tokens = myLexer input
-    progTree = pProgram tokens-}
     
 type PInfo = Maybe (Int, Int)
 
 type ParseFun a = [Token] -> Err a
 
---myLLexer = myLexer
 
 runFile :: ParseFun Program -> FilePath -> IO ()
 runFile p f = readFile f >>= run p

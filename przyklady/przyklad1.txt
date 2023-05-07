@@ -1,10 +1,10 @@
 {
-int x = 2+3;
-int y = x+7;
-int z = x + y;
-if (z) then
+int x = (2*3)+6;
+int y = x%7;
+int z = x - y;
+if (x != y) then
 {
-    int x = 6;
+    x = 6;
 } 
 else 
 {
