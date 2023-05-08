@@ -6,6 +6,10 @@ ETrue.     Expr6 ::= "True" ;
 
 EFalse.    Expr6 ::= "False" ;
 
+ECall.      Expr6 ::= Ident "(" [Expr] ")" ;
+
+EString.   Expr6 ::= String ;
+
 ENeg.      Expr5 ::= "-" Expr6 ;
 
 ENot.      Expr5 ::= "!" Expr6 ;
@@ -55,8 +59,19 @@ IInit.     Inst ::= Type Ident "=" Expr ;
 
 IWhile.    Inst ::= "while" "(" Expr ")" Block ;
 
+FunDef.       Func ::= Ident "(" [Arg] ")" Block ;
+
+ArgVal.       Arg ::= Type Ident ;
+
+separator Arg "," ;
+
 TypeInt. Type ::= "int" ;
+
 TypeBool. Type ::= "bool" ;
+
+TypeStr. Type ::= "string" ;
+
+TypeVoid. Type ::= "void" ;
 
 separator Inst ";" ;
 
@@ -67,5 +82,13 @@ separator Block "" ;
 Prog.  Program ::= [Block] ;
 
 entrypoints Program ;
+
+-- comments ------------------------------------------------
+
+comment    "#" ;
+
+comment    "//" ;
+
+comment    "/*" "*/" ;
 
 

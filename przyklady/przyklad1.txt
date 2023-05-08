@@ -1,8 +1,15 @@
 {
-int x = 5;
-int y = 0;
-while (y < x) 
-{ 
-y = y+1
+    string s = "hehe";
+    int a = 5;
+    bool b = True;
+    bool c = b && (a > 7);
+    bool d = b || (a > 7);
+    if (b) then 
+    {
+        int x = 17;
+    }
+    else
+    {
+        int y = 18;
+    };
 }
-} 
