@@ -6,7 +6,7 @@ ETrue.     Expr6 ::= "True" ;
 
 EFalse.    Expr6 ::= "False" ;
 
-ECall.      Expr6 ::= Ident "(" [Expr] ")" ;
+ECall.     Expr6 ::= Ident "(" [Expr] ")" ;
 
 EString.   Expr6 ::= String ;
 
@@ -53,13 +53,15 @@ NE.        RelOp ::= "!=" ;
 
 IAssign.   Inst ::= Ident "=" Expr ;
 
-IIf.       Inst ::= "if" "(" Expr ")" "then" Block "else" Block ;
+IIfElse.       Inst ::= "if" "(" Expr ")" "then" Block "else" Block ;
+
+IIf.        Inst ::= "if" "(" Expr ")" "then" Block ;
 
 IInit.     Inst ::= Type Ident "=" Expr ;
 
 IWhile.    Inst ::= "while" "(" Expr ")" Block ;
 
-FunDef.       Func ::= Ident "(" [Arg] ")" Block ;
+IFunDef.    Inst ::= "function" Ident "(" [Arg] ")" Block ;
 
 ArgVal.       Arg ::= Type Ident ;
 
@@ -79,7 +81,7 @@ Bl.    Block ::= "{" [Inst] "}" ;
 
 separator Block "" ;
 
-Prog.  Program ::= [Block] ;
+Prog.  Program ::= [Inst] ;
 
 entrypoints Program ;
 

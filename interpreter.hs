@@ -58,6 +58,17 @@ evalExpr (EFalse _ ) = return (ValBool False)
 
 evalExpr (EString _ s) = return (ValStr s)
 
+evalExpr (ECall _ f es) = do
+    (env_v, env_f) <- ask
+    if Map.member f env_f then
+        let (body, args) = (env_f Map.! f) in do
+            env_mod <- assign_args es args
+            local env_mod (evalBlock body)
+            return VVoid -- na razie funkcja nic nie zwraca nigdy
+    else 
+        throwError("Error. Function " ++ (show f) ++ " not declared.")
+    
+
 evalExpr (ENeg _ e) = do
     ev <- (evalExpr e)
     case ev of 
@@ -137,26 +148,25 @@ relop_to_fun (GTH _ ) n1 n2 = (n1 > n2)
 relop_to_fun (GE _ ) n1 n2 = (n1 >= n2)
 relop_to_fun (EQU _ ) n1 n2 = (n1 == n2)
 relop_to_fun (NE _ ) n1 n2 = (n1 /= n2)
+     
+     
+assign_args :: [Expr] -> [Arg] -> Interpreter (Env -> Env)
 
-{-bool_to_integer :: Bool -> Integer
-bool_to_integer True = 1
-bool_to_integer False = 0
-
-integer_to_bool :: Integer -> Bool
-integer_to_bool n = (n > 0)
-
-fun_bool_to_integer :: (Bool -> Bool -> Bool) -> Integer -> Integer -> Integer
-fun_bool_to_integer f n1 n2 = 
-    bool_to_integer (f b1 b2) where
-        b1 = integer_to_bool n1
-        b2 = integer_to_bool n2-}
-        
+assign_args [] [] = return id
+assign_args [] _ = throwError ("Too few arguments given")
+assign_args _ [] = throwError ("Too many arguments given")
+assign_args (e:etl) ((ArgVal a t ident):atl) = do
+    env_modifier <- evalInst (IInit a t ident e) 
+    env_mods <- (assign_args etl atl) 
+    return (env_mods . env_modifier)  
     
 -- program and blocks
     
 evalProg :: Program -> Interpreter ()
 
-evalProg (Prog _ blocks) = evalBlocks blocks
+evalProg (Prog _ insts) = do
+    mod <- evalInsts insts
+    return ()
     
 evalBlocks :: [Block] -> Interpreter ()
 
@@ -171,6 +181,8 @@ evalBlock (Bl _ insts) = do
     mod <- evalInsts insts
     return ()
     
+
+    
 -- instructions -----------------
     
 evalInsts :: [Inst] -> Interpreter (Env -> Env)
@@ -178,7 +190,9 @@ evalInsts :: [Inst] -> Interpreter (Env -> Env)
 evalInsts [] = return id
 evalInsts (inst:tl) = do
     env_modifier <- evalInst inst
-    local env_modifier (evalInsts tl)
+    env_mods <- local env_modifier (evalInsts tl)
+    return (env_mods . env_modifier)
+    
     
 evalInst :: Inst -> Interpreter (Env -> Env)
     
@@ -196,7 +210,7 @@ evalInst (IAssign _ x e) = do
     else
         throwError ("Unknown variable " ++ (show x) ++ " at some place!")
 
-evalInst (IIf _ e b1 b2) = do
+evalInst (IIfElse _ e b1 b2) = do
     ev <- (evalExpr e)
     case ev of
         (ValBool True) -> do
@@ -205,12 +219,29 @@ evalInst (IIf _ e b1 b2) = do
         (ValBool False) -> do
             evalBlock b2
             return id 
+        _ -> throwError ("Error: if condition must be boolean.")  
+        
+evalInst (IIf _ e b) = do
+    ev <- (evalExpr e)
+    case ev of
+        (ValBool True) -> do
+            evalBlock b
+            return id
+        (ValBool False) -> do
+            return id 
         _ -> throwError ("Error: if condition must be boolean.")   
             
 
 evalInst (IInit _ t x e) = do
     ev <- (evalExpr e)
-    case t of
+    check_type t ev
+    (env_v, env_f) <- ask
+    (store, loc) <- get
+    put ((Map.insert loc ev store), (loc + 1)) 
+    return (\(env_v, env_f) -> ((Map.insert x loc env_v), env_f))
+    
+    
+    {- case t of
         (TypeInt _ ) -> case ev of 
             (ValInt _) -> do
                 (env_v, env_f) <- ask
@@ -233,7 +264,7 @@ evalInst (IInit _ t x e) = do
                 put ((Map.insert loc ev store), (loc + 1)) 
                 return (\(env_v, env_f) -> ((Map.insert x loc env_v), env_f))
             _ -> throwError ("Error. Type declared bool but value is not boolean.")
-        _ -> throwError ("Error. Not known type.")
+        _ -> throwError ("Error. Not known type.") -}
     
 evalInst (IWhile a e b) = do
     ev <- evalExpr e
@@ -244,7 +275,25 @@ evalInst (IWhile a e b) = do
         (ValBool False) -> do
             return id
         _ -> throwError("Error. While condition must be boolean.")
+        
+evalInst (IFunDef _ name args body) = do
+    return (\(env_v, env_f) -> (env_v, Map.insert name (body, args) env_f))
 
+check_type :: Type -> Value -> Interpreter ()
+check_type t ev = do
+    case t of
+        (TypeInt _ ) -> case ev of 
+            (ValInt _) -> return ()
+            _ -> throwError ("Error. Type declared integer but value is not integer.")
+        (TypeStr _ ) -> case ev of 
+            (ValStr _) -> return ()
+            _ -> throwError ("Error. Type declared string but value is not string.")
+        (TypeBool _ ) -> case ev of 
+            (ValBool _) -> return ()
+            _ -> throwError ("Error. Type declared bool but value is not boolean.")
+        (TypeVoid _ ) -> case ev of 
+            (VVoid) -> return ()
+            _ -> throwError ("Error. Type declared void but value is not void.")
 
 -- running ----------------------
 
