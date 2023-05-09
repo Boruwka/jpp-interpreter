@@ -38,7 +38,7 @@ instance Show Value where
 
 evalExpr :: Expr -> Interpreter Value 
 
-evalExpr (EVar _ x) = do
+evalExpr (EVar pos x) = do
     (env_v, env_f) <- ask
     (store, loc) <- get
     if Map.member x env_v then
@@ -46,9 +46,9 @@ evalExpr (EVar _ x) = do
         if Map.member l store then 
             return (store Map.! l) 
         else
-            throwError ("Weird error - localisation not known in state!")
+            throwError ("Weird error " ++ " at position " ++ show pos ++ " - localisation not known in state!")
     else
-        throwError ("Unknown variable " ++ (show x) ++ " at some place!")
+        throwError ("Unknown variable " ++ (show x) ++ " at position " ++ (show pos))
 
 evalExpr (EInt _ n) = return (ValInt n)  
     
@@ -58,77 +58,77 @@ evalExpr (EFalse _ ) = return (ValBool False)
 
 evalExpr (EString _ s) = return (ValStr s)
 
-evalExpr (ECall _ f es) = do
+evalExpr (ECall pos f es) = do
     (env_v, env_f) <- ask
     if Map.member f env_f then
         let (body, args) = (env_f Map.! f) in do
-            env_mod <- assign_args es args
+            env_mod <- assign_args es args pos
             local env_mod (evalBlock body)
             return VVoid -- na razie funkcja nic nie zwraca nigdy
     else 
-        throwError("Error. Function " ++ (show f) ++ " not declared.")
+        throwError("Error. Function " ++ (show f) ++ " not declared" ++ " at position " ++ (show pos))
     
 
-evalExpr (ENeg _ e) = do
+evalExpr (ENeg pos e) = do
     ev <- (evalExpr e)
     case ev of 
         (ValInt n) -> return (ValInt (negate n))
-        _ -> throwError("Error, only integer expression can be negated!")
+        _ -> throwError("Error, only integer expression can be negated!" ++ " at position " ++ (show pos))
     
-evalExpr (ENot _ e) = do
+evalExpr (ENot pos e) = do
     ev <- (evalExpr e)
     case ev of 
         (ValBool b) -> return (ValBool (not b))
-        _ -> throwError("Error, only boolean expression can be logically negated!")
+        _ -> throwError("Error, only boolean expression can be logically negated!" ++ " at position " ++ (show pos))
     
-evalExpr (EMul _ e1 op e2) = 
+evalExpr (EMul pos e1 op e2) = 
     let fop = mulop_to_fun op in
-        evalWithIntOperator e1 e2 fop    
+        evalWithIntOperator e1 e2 fop pos   
     
-evalExpr (EAdd _ e1 op e2) = 
+evalExpr (EAdd pos e1 op e2) = 
     let fop = addop_to_fun op in
-        evalWithIntOperator e1 e2 fop
+        evalWithIntOperator e1 e2 fop pos
     
-evalExpr (EAnd _ e1 e2) = 
-    evalWithBoolOperator e1 e2 (&&)
+evalExpr (EAnd pos e1 e2) = 
+    evalWithBoolOperator e1 e2 (&&) pos
     
-evalExpr (EOr _ e1 e2) = 
-    evalWithBoolOperator e1 e2 (||)
+evalExpr (EOr pos e1 e2) = 
+    evalWithBoolOperator e1 e2 (||) pos
     
-evalExpr (ERel _ e1 op e2) =
+evalExpr (ERel pos e1 op e2) =
     let fop = relop_to_fun op in
-        evalWithRelOperator e1 e2 fop
+        evalWithRelOperator e1 e2 fop pos
         
-evalWithIntOperator :: Expr -> Expr -> (Integer -> Integer -> Integer) -> Interpreter Value
-evalWithIntOperator e1 e2 op = do
+evalWithIntOperator :: Expr -> Expr -> (Integer -> Integer -> Integer) -> BNFC'Position -> Interpreter Value
+evalWithIntOperator e1 e2 op pos = do
     ev1 <- evalExpr e1
     ev2 <- evalExpr e2
     case ev1 of 
         (ValInt n1) -> case ev2 of
             (ValInt n2) -> return (ValInt (op n1 n2))
-            _ -> throwError ("Error: both arguments of an arithmetic operation must be integers.")
-        _ -> throwError ("Error: both arguments of an arithmetic operation must be integers.")
+            _ -> throwError ("Error: both arguments of an arithmetic operation must be integers." ++ " at position " ++ (show pos))
+        _ -> throwError ("Error: both arguments of an arithmetic operation must be integers." ++ " at position " ++ (show pos))
     
     
-evalWithBoolOperator :: Expr -> Expr -> (Bool -> Bool -> Bool) -> Interpreter Value
-evalWithBoolOperator e1 e2 op = do
+evalWithBoolOperator :: Expr -> Expr -> (Bool -> Bool -> Bool) -> BNFC'Position -> Interpreter Value
+evalWithBoolOperator e1 e2 op pos = do
     ev1 <- evalExpr e1
     ev2 <- evalExpr e2
     case ev1 of 
         (ValBool b1) -> case ev2 of
             (ValBool b2) -> return (ValBool (op b1 b2))
-            _ -> throwError ("Error: both arguments of an logical operation must be booleans.")
-        _ -> throwError ("Error: both arguments of an arithmetic operation must be boolean.")
+            _ -> throwError ("Error: both arguments of an logical operation must be booleans." ++ " at position " ++ (show pos))
+        _ -> throwError ("Error: both arguments of an arithmetic operation must be boolean." ++ " at position " ++ (show pos))
     
-evalWithRelOperator :: Expr -> Expr -> (Integer -> Integer -> Bool) -> Interpreter Value
-evalWithRelOperator e1 e2 op = do
+evalWithRelOperator :: Expr -> Expr -> (Integer -> Integer -> Bool) -> BNFC'Position -> Interpreter Value
+evalWithRelOperator e1 e2 op pos = do
     ev1 <- evalExpr e1
     ev2 <- evalExpr e2
     case ev1 of 
         (ValInt n1) -> case ev2 of
             (ValInt n2) -> return (ValBool (op n1 n2))
-            _ -> throwError ("Error: both arguments of a relational operation must be integers.")
-        _ -> throwError ("Error: both arguments of a relational operation must be integers.")
+            _ -> throwError ("Error: both arguments of a relational operation must be integers." ++ " at position " ++ (show pos))
+        _ -> throwError ("Error: both arguments of a relational operation must be integers." ++ " at position " ++ (show pos))
     
 addop_to_fun :: AddOp -> (Integer -> Integer -> Integer) 
 
@@ -150,14 +150,14 @@ relop_to_fun (EQU _ ) n1 n2 = (n1 == n2)
 relop_to_fun (NE _ ) n1 n2 = (n1 /= n2)
      
      
-assign_args :: [Expr] -> [Arg] -> Interpreter (Env -> Env)
+assign_args :: [Expr] -> [Arg] -> BNFC'Position -> Interpreter (Env -> Env)
 
-assign_args [] [] = return id
-assign_args [] _ = throwError ("Too few arguments given")
-assign_args _ [] = throwError ("Too many arguments given")
-assign_args (e:etl) ((ArgVal a t ident):atl) = do
+assign_args [] [] _ = return id
+assign_args [] _ pos = throwError ("Too few arguments given" ++ " at position " ++ (show pos))
+assign_args _ [] pos = throwError ("Too many arguments given" ++ " at position " ++ (show pos))
+assign_args (e:etl) ((ArgVal a t ident):atl) pos = do
     env_modifier <- evalInst (IInit a t ident e) 
-    env_mods <- (assign_args etl atl) 
+    env_mods <- (assign_args etl atl pos) 
     return (env_mods . env_modifier)  
     
 -- program and blocks
@@ -196,7 +196,7 @@ evalInsts (inst:tl) = do
     
 evalInst :: Inst -> Interpreter (Env -> Env)
     
-evalInst (IAssign _ x e) = do 
+evalInst (IAssign pos x e) = do 
     (env_v, env_f) <- ask
     (store, loc) <- get
     if Map.member x env_v then
@@ -206,11 +206,11 @@ evalInst (IAssign _ x e) = do
             put ((Map.insert l n store), loc)
             return id
         else
-            throwError ("Weird error - localisation not known in state!")
+            throwError ("Weird error - localisation not known in state!" ++ " at position " ++ (show pos))
     else
-        throwError ("Unknown variable " ++ (show x) ++ " at some place!")
+        throwError ("Unknown variable " ++ (show x)  ++ " at position " ++ (show pos))
 
-evalInst (IIfElse _ e b1 b2) = do
+evalInst (IIfElse pos e b1 b2) = do
     ev <- (evalExpr e)
     case ev of
         (ValBool True) -> do
@@ -219,9 +219,9 @@ evalInst (IIfElse _ e b1 b2) = do
         (ValBool False) -> do
             evalBlock b2
             return id 
-        _ -> throwError ("Error: if condition must be boolean.")  
+        _ -> throwError ("Error: if condition must be boolean." ++ " at position " ++ (show pos))  
         
-evalInst (IIf _ e b) = do
+evalInst (IIf pos e b) = do
     ev <- (evalExpr e)
     case ev of
         (ValBool True) -> do
@@ -229,71 +229,50 @@ evalInst (IIf _ e b) = do
             return id
         (ValBool False) -> do
             return id 
-        _ -> throwError ("Error: if condition must be boolean.")   
+        _ -> throwError ("Error: if condition must be boolean." ++ " at position " ++ (show pos))   
             
 
-evalInst (IInit _ t x e) = do
+evalInst (IInit pos t x e) = do
     ev <- (evalExpr e)
-    check_type t ev
+    check_type t ev pos
     (env_v, env_f) <- ask
     (store, loc) <- get
     put ((Map.insert loc ev store), (loc + 1)) 
     return (\(env_v, env_f) -> ((Map.insert x loc env_v), env_f))
     
     
-    {- case t of
-        (TypeInt _ ) -> case ev of 
-            (ValInt _) -> do
-                (env_v, env_f) <- ask
-                (store, loc) <- get
-                put ((Map.insert loc ev store), (loc + 1)) 
-                return (\(env_v, env_f) -> ((Map.insert x loc env_v), env_f))
-            _ -> throwError ("Error. Type declared integer but value is not integer.")
-        (TypeStr _ ) -> case ev of 
-            (ValStr _) -> do
-                (env_v, env_f) <- ask
-                (store, loc) <- get
-                put ((Map.insert loc ev store), (loc + 1)) 
-                return (\(env_v, env_f) -> ((Map.insert x loc env_v), env_f))
-            _ -> throwError ("Error. Type declared string but value is not string.")
-            
-        (TypeBool _ ) -> case ev of 
-            (ValBool _) -> do
-                (env_v, env_f) <- ask
-                (store, loc) <- get
-                put ((Map.insert loc ev store), (loc + 1)) 
-                return (\(env_v, env_f) -> ((Map.insert x loc env_v), env_f))
-            _ -> throwError ("Error. Type declared bool but value is not boolean.")
-        _ -> throwError ("Error. Not known type.") -}
-    
-evalInst (IWhile a e b) = do
+evalInst (IWhile pos e b) = do
     ev <- evalExpr e
     case ev of 
         (ValBool True) -> do
             evalBlock b
-            evalInst (IWhile a e b) 
+            evalInst (IWhile pos e b) 
         (ValBool False) -> do
             return id
-        _ -> throwError("Error. While condition must be boolean.")
+        _ -> throwError("Error. While condition must be boolean." ++ " at position " ++ (show pos))
         
 evalInst (IFunDef _ name args body) = do
     return (\(env_v, env_f) -> (env_v, Map.insert name (body, args) env_f))
+    
+evalInst (IExpr _ e) = do
+    evalExpr e
+    return id
 
-check_type :: Type -> Value -> Interpreter ()
-check_type t ev = do
+check_type :: Type -> Value -> BNFC'Position -> Interpreter ()
+check_type t ev pos = do
     case t of
         (TypeInt _ ) -> case ev of 
             (ValInt _) -> return ()
-            _ -> throwError ("Error. Type declared integer but value is not integer.")
+            _ -> throwError ("Error. Type declared integer but value is not integer." ++ " at position " ++ (show pos))
         (TypeStr _ ) -> case ev of 
             (ValStr _) -> return ()
-            _ -> throwError ("Error. Type declared string but value is not string.")
+            _ -> throwError ("Error. Type declared string but value is not string." ++ " at position " ++ (show pos))
         (TypeBool _ ) -> case ev of 
             (ValBool _) -> return ()
-            _ -> throwError ("Error. Type declared bool but value is not boolean.")
+            _ -> throwError ("Error. Type declared bool but value is not boolean." ++ " at position " ++ (show pos))
         (TypeVoid _ ) -> case ev of 
             (VVoid) -> return ()
-            _ -> throwError ("Error. Type declared void but value is not void.")
+            _ -> throwError ("Error. Type declared void but value is not void." ++ " at position " ++ (show pos))
 
 -- running ----------------------
 

@@ -63,6 +63,8 @@ IWhile.    Inst ::= "while" "(" Expr ")" Block ;
 
 IFunDef.    Inst ::= "function" Ident "(" [Arg] ")" Block ;
 
+IExpr.     Inst ::= Expr ;
+
 ArgVal.       Arg ::= Type Ident ;
 
 separator Arg "," ;

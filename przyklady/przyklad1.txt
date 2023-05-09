@@ -1,13 +1,14 @@
-string s = "hehe";
-int a = 5;
-bool b = True;
-if (b) then 
+int a = 1;
+function silnia(int x)
 {
-    int x = 17;
+    if (x == 0) then 
+    {
+        a = 1;
+    }
+    else
+    {
+        a = x * a;
+        silnia(x-1);
+    }; 
 };
-function f(int x, int y)
-{
-    a = x+y;
-    b = False;
-};
-void null = f(3,4);
+silnia(5);
