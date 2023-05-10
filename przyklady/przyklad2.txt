@@ -1,3 +1,22 @@
+int a = 1;
+function silnia(int x)
 {
-string s = 5;
-}
+    print("funkcja od");
+    print(x);
+    print("na razie a =");
+    print(a);
+    if (x == 0) then 
+    {
+        int b = 0;
+    }
+    else
+    {
+    	print("a = ");
+    	print(a);
+        a = x * a;
+        silnia(x-1);
+    }; 
+};
+silnia(5);
+print("zwracamy a = ");
+print(a);

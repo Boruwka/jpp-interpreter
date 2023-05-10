@@ -26,7 +26,7 @@ type Store = Map.Map Loc Value
 type StoreLocations = (Store, Integer)
 data Value = ValInt Integer | ValBool Bool | ValStr String | VVoid
 
-type Interpreter a = (ReaderT Env (ExceptT ErrMess (StateT StoreLocations Identity))) a
+type Interpreter a = (ReaderT Env (ExceptT ErrMess (StateT StoreLocations (IO)))) a
 
 instance Show Value where
     show (ValInt n) = show n
@@ -257,6 +257,11 @@ evalInst (IFunDef _ name args body) = do
 evalInst (IExpr _ e) = do
     evalExpr e
     return id
+    
+evalInst (IPrint pos e) = do
+    ev <- evalExpr e
+    liftIO $ print (show ev)
+    return id
 
 check_type :: Type -> Value -> BNFC'Position -> Interpreter ()
 check_type t ev pos = do
@@ -276,11 +281,16 @@ check_type t ev pos = do
 
 -- running ----------------------
 
-runInterpreter :: (Interpreter a) -> Env -> StoreLocations -> (Either ErrMess a, StoreLocations)
-runInterpreter monad env store = runIdentity (runStateT (runExceptT (runReaderT monad env)) store)
+--runInterpreter :: (Interpreter a) -> Env -> StoreLocations -> (Either ErrMess a, StoreLocations)
+runInterpreter :: (Interpreter a) -> Env -> StoreLocations -> IO (Either ErrMess a, StoreLocations)
+runInterpreter monad env store = (runStateT (runExceptT (runReaderT monad env)) store)
 
-interpret :: Program' BNFC'Position -> (Either ErrMess (), StoreLocations)
-interpret progTree = runInterpreter (evalProg progTree) (Map.empty, Map.empty) ((Map.empty), 0)
+--interpret :: Program' BNFC'Position -> (Either ErrMess (), StoreLocations)
+interpret :: Program' BNFC'Position -> IO ()
+interpret progTree = do
+    result <- ((runInterpreter (evalProg progTree) (Map.empty, Map.empty) ((Map.empty), 0)))
+    print (show result)
+    return ()
 
     
 type PInfo = Maybe (Int, Int)
@@ -291,9 +301,9 @@ type ParseFun a = [Token] -> Err a
 runFile :: ParseFun Program -> FilePath -> IO ()
 runFile p f = readFile f >>= run p
 
-show_state_or_error :: (Either ErrMess (), StoreLocations) -> String
-show_state_or_error (Left errMess, _) = show errMess
-show_state_or_error (Right (), s) = show s
+{-print_state_or_error :: IO (Either ErrMess (), StoreLocations) -> IO ()
+print_state_or_error IO (Left errMess, _) = print (show errMess)
+print_state_or_error IO (Right (), s) = print (show s)
 
 run :: ParseFun Program -> String -> IO ()
 run p s = let ts = myLexer s in case p ts of
@@ -303,7 +313,18 @@ run p s = let ts = myLexer s in case p ts of
                         print "blad parsowania"
                         exitFailure
             Ok tree -> do
-                        print (show_state_or_error (interpret tree))
+                        print_state_or_error (interpret tree)
+                        exitSuccess-}
+                        
+run :: ParseFun Program -> String -> IO ()
+run p s = let ts = myLexer s in case p ts of
+            Bad s   -> do
+                        putStrLn "Interpreter failed to parse the program"
+                        putStrLn (show s)
+                        print "blad parsowania"
+                        exitFailure
+            Ok tree -> do
+                        interpret tree
                         exitSuccess
 
 

@@ -65,6 +65,8 @@ IFunDef.    Inst ::= "function" Ident "(" [Arg] ")" Block ;
 
 IExpr.     Inst ::= Expr ;
 
+IPrint.     Inst ::= "print" "(" Expr ")" ;
+
 ArgVal.       Arg ::= Type Ident ;
 
 separator Arg "," ;
