@@ -354,6 +354,3 @@ main = do
     [] -> getContents >>= run pProgram
     [f] -> runFile pProgram f
     _ -> putStrLn "Too many arguments" >> exitFailure
-{-main = do
-    [path] <- getArgs
-    runFile pProgram path-}
