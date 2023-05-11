@@ -69,6 +69,8 @@ IPrint.     Inst ::= "print" "(" Expr ")" ;
 
 ArgVal.       Arg ::= Type Ident ;
 
+ArgRef.   Arg ::= "&" Type Ident ;
+
 separator Arg "," ;
 
 TypeInt. Type ::= "int" ;

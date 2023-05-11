@@ -1,5 +1,5 @@
 int a = 1;
-function silnia(int x)
+function silnia(int x, & int a)
 {
     print("funkcja od");
     print(x);
@@ -7,16 +7,16 @@ function silnia(int x)
     print(a);
     if (x == 0) then 
     {
-        a = 1;
+        int b = 0;
     }
     else
     {
     	print("a = ");
     	print(a);
         a = x * a;
-        silnia(x-1);
+        silnia(x-1, a);
     }; 
 };
-silnia(5);
+silnia(5, a);
 print("zwracamy a = ");
 print(a);

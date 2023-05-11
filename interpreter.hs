@@ -62,9 +62,10 @@ evalExpr (ECall pos f es) = do
     (env_v, env_f) <- ask
     if Map.member f env_f then
         let (body, args) = (env_f Map.! f) in do
-            env_mod <- assign_args es args pos
-            local env_mod (evalBlock body)
-            return VVoid -- na razie funkcja nic nie zwraca nigdy
+            env_mod <- (assign_args es args env_v pos)
+            let env_mod_with_clean = (env_mod . (\(env_v, env_f) -> (Map.empty, env_f))) in do
+                local env_mod_with_clean (evalBlock body)
+                return VVoid -- na razie funkcja nic nie zwraca nigdy
     else 
         throwError("Error. Function " ++ (show f) ++ " not declared" ++ " at position " ++ (show pos))
     
@@ -150,15 +151,24 @@ relop_to_fun (EQU _ ) n1 n2 = (n1 == n2)
 relop_to_fun (NE _ ) n1 n2 = (n1 /= n2)
      
      
-assign_args :: [Expr] -> [Arg] -> BNFC'Position -> Interpreter (Env -> Env)
+assign_args :: [Expr] -> [Arg] -> EnvV -> BNFC'Position -> Interpreter (Env -> Env)
 
-assign_args [] [] _ = return id
-assign_args [] _ pos = throwError ("Too few arguments given" ++ " at position " ++ (show pos))
-assign_args _ [] pos = throwError ("Too many arguments given" ++ " at position " ++ (show pos))
-assign_args (e:etl) ((ArgVal a t ident):atl) pos = do
+assign_args [] [] _ _ = return id
+
+assign_args [] _ _ pos = throwError ("Too few arguments given" ++ " at position " ++ (show pos))
+
+assign_args _ [] _ pos = throwError ("Too many arguments given" ++ " at position " ++ (show pos))
+
+assign_args (e:etl) ((ArgVal a t ident):atl) old_env pos = do
     env_modifier <- evalInst (IInit a t ident e) 
-    env_mods <- (assign_args etl atl pos) 
+    env_mods <- (assign_args etl atl old_env pos) 
     return (env_mods . env_modifier)  
+    
+assign_args (e:etl) ((ArgRef a t ident):atl) old_env pos =
+    let l = (old_env Map.! ident) in
+        let env_modifier = (\(env_v, env_f) -> ((Map.insert ident l env_v), env_f)) in do
+            env_mods <- (assign_args etl atl old_env pos) 
+            return (env_mods . env_modifier) 
     
 -- program and blocks
     
