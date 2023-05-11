@@ -1,0 +1,6 @@
+// if bez then
+
+if (True)
+{
+    print(5);
+};

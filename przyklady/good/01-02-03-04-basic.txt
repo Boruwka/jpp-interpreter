@@ -1,0 +1,15 @@
+/* 01 (trzy typy)
+02 (literały, arytmetyka, porównania)
+03 (zmienne, przypisanie)
+04 (print) */
+  
+string s = "hello world";
+print(s);
+int m = 7;
+print(m+1);
+bool b = ((m%2) == 1);
+print(b);
+m = 3*m + (5-4);
+print(m);
+b = b && False;
+print(b);

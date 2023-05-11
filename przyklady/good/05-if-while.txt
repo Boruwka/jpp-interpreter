@@ -1,0 +1,14 @@
+// obliczam liczbę liczb nieparzystych od 0 do 99
+
+int n = 100;
+int licz = 0;
+int i = 0;
+while (i < n)
+{
+    if ((i % 2) == 1) then
+    {
+        licz = licz + 1;
+    };
+    i = i + 1;
+};
+print(licz);

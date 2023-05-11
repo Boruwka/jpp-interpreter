@@ -83,12 +83,12 @@ evalExpr (ENot pos e) = do
         _ -> throwError("Error, only boolean expression can be logically negated!" ++ " at position " ++ (show pos))
     
 evalExpr (EMul pos e1 op e2) = 
-    let fop = mulop_to_fun op in
-        evalWithIntOperator e1 e2 fop pos   
+    let fop = mulop_to_fun op in do
+        evalWithIntOperator e1 e2 fop (Just op) pos   
     
 evalExpr (EAdd pos e1 op e2) = 
     let fop = addop_to_fun op in
-        evalWithIntOperator e1 e2 fop pos
+        evalWithIntOperator e1 e2 fop Nothing pos
     
 evalExpr (EAnd pos e1 e2) = 
     evalWithBoolOperator e1 e2 (&&) pos
@@ -100,10 +100,11 @@ evalExpr (ERel pos e1 op e2) =
     let fop = relop_to_fun op in
         evalWithRelOperator e1 e2 fop pos
         
-evalWithIntOperator :: Expr -> Expr -> (Integer -> Integer -> Integer) -> BNFC'Position -> Interpreter Value
-evalWithIntOperator e1 e2 op pos = do
+evalWithIntOperator :: Expr -> Expr -> (Integer -> Integer -> Integer) -> Maybe MulOp -> BNFC'Position -> Interpreter Value
+evalWithIntOperator e1 e2 op raw_op pos = do
     ev1 <- evalExpr e1
     ev2 <- evalExpr e2
+    detect_zero_division ev1 ev2 raw_op pos
     case ev1 of 
         (ValInt n1) -> case ev2 of
             (ValInt n2) -> return (ValInt (op n1 n2))
@@ -149,6 +150,15 @@ relop_to_fun (GTH _ ) n1 n2 = (n1 > n2)
 relop_to_fun (GE _ ) n1 n2 = (n1 >= n2)
 relop_to_fun (EQU _ ) n1 n2 = (n1 == n2)
 relop_to_fun (NE _ ) n1 n2 = (n1 /= n2)
+
+detect_zero_division :: Value -> Value -> Maybe MulOp -> BNFC'Position -> Interpreter Value
+detect_zero_division v1 v2 op pos = do
+    case v2 of 
+        (ValInt 0) -> case op of
+            (Just (Div _)) -> throwError("Error. Division by 0 at position " ++ (show pos))
+            (Just (Mod _)) -> throwError("Error. Taking modulo by 0 at position " ++ (show pos))
+            _ -> return (VVoid)
+        _ -> return (VVoid)
      
      
 assign_args :: [Expr] -> [Arg] -> EnvV -> BNFC'Position -> Interpreter (Env -> Env)
@@ -291,15 +301,18 @@ check_type t ev pos = do
 
 -- running ----------------------
 
---runInterpreter :: (Interpreter a) -> Env -> StoreLocations -> (Either ErrMess a, StoreLocations)
+
 runInterpreter :: (Interpreter a) -> Env -> StoreLocations -> IO (Either ErrMess a, StoreLocations)
 runInterpreter monad env store = (runStateT (runExceptT (runReaderT monad env)) store)
 
---interpret :: Program' BNFC'Position -> (Either ErrMess (), StoreLocations)
+show_without_storeloc :: (Either ErrMess (), StoreLocations) -> String
+show_without_storeloc (Left err, s) = show err
+show_without_storeloc (Right (), s) = ""
+
 interpret :: Program' BNFC'Position -> IO ()
 interpret progTree = do
     result <- ((runInterpreter (evalProg progTree) (Map.empty, Map.empty) ((Map.empty), 0)))
-    print (show result)
+    print (show_without_storeloc result)
     return ()
 
     
@@ -310,21 +323,6 @@ type ParseFun a = [Token] -> Err a
 
 runFile :: ParseFun Program -> FilePath -> IO ()
 runFile p f = readFile f >>= run p
-
-{-print_state_or_error :: IO (Either ErrMess (), StoreLocations) -> IO ()
-print_state_or_error IO (Left errMess, _) = print (show errMess)
-print_state_or_error IO (Right (), s) = print (show s)
-
-run :: ParseFun Program -> String -> IO ()
-run p s = let ts = myLexer s in case p ts of
-            Bad s   -> do
-                        putStrLn "Interpreter failed to parse the program"
-                        putStrLn (show s)
-                        print "blad parsowania"
-                        exitFailure
-            Ok tree -> do
-                        print_state_or_error (interpret tree)
-                        exitSuccess-}
                         
 run :: ParseFun Program -> String -> IO ()
 run p s = let ts = myLexer s in case p ts of
@@ -338,7 +336,24 @@ run p s = let ts = myLexer s in case p ts of
                         exitSuccess
 
 
---path = "przyklady/przyklad1.txt"
+usage :: IO ()
+usage = do
+  putStrLn $ unlines
+    [ "usage: Call with one of the following argument combinations:"
+    , "  --help          Display this help message."
+    , "  (no arguments)  Run interpreter on program from stdin"
+    , "  filepath        Run interpreter on program from filepath"
+    ]
+  exitFailure
+
+main :: IO ()
 main = do
+  args <- getArgs
+  case args of
+    ["--help"] -> usage
+    [] -> getContents >>= run pProgram
+    [f] -> runFile pProgram f
+    _ -> putStrLn "Too many arguments" >> exitFailure
+{-main = do
     [path] <- getArgs
-    runFile pProgram path
+    runFile pProgram path-}
